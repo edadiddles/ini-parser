@@ -73,7 +73,6 @@ fn parseFile(allocator: std.mem.Allocator, filename: []const u8) !void {
         }
         
     }
-    // std.StringHashMap
 }
 
 
