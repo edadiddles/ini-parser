@@ -46,12 +46,13 @@ fn parseFile(allocator: std.mem.Allocator, filename: []const u8) !void {
         var delimiter_idx: usize = 0;
         for (token,0..) |c,i| {
             if (c == ';' or c == '#') {
-                //@memcpy(val[0..i-key.len-numSpaces], buf[0..i-key.len-numSpaces]);
+                @memcpy(val[0..i-delimiter_idx], buf[0..i-delimiter_idx]);
                 @memset(buf, 0);
+                std.debug.print("Val: |{s}|\n", .{ val });
                 break;
             }
             if (c == '=') {
-                @memcpy(key[0..i-numSpaces], buf[0..i-numSpaces]);
+                @memcpy(key[0..i], buf[0..i]);
                 @memset(buf, 0);
                 numSpaces = 0;
                 delimiter_idx = i;
@@ -63,6 +64,11 @@ fn parseFile(allocator: std.mem.Allocator, filename: []const u8) !void {
                 continue;
             }
             buf[i-delimiter_idx] = c;
+            if (i == token.len-1) {
+                @memcpy(val[0..i-delimiter_idx+1], buf[0..i-delimiter_idx+1]);
+                @memset(buf, 0);
+                std.debug.print("Val: |{s}|\n", .{ val });
+            }
 
         }
         
