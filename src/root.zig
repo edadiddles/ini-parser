@@ -1,7 +1,7 @@
 //! By convention, root.zig is the root source file when making a library.
 const std = @import("std");
 
-fn parseFile(allocator: std.mem.Allocator, filename: []const u8) !void {
+fn parseFile(allocator: std.mem.Allocator, filename: []const u8) !std.StringHashMap(std.StringHashMap([]u8)) {
     const file = try std.fs.cwd().openFile(filename, .{ .mode = .read_only });
     defer file.close();
 
@@ -14,15 +14,13 @@ fn parseFile(allocator: std.mem.Allocator, filename: []const u8) !void {
 
     _ = try file.read(buffer);
 
-    const iniConfig = std.StringHashMap(std.StringHashMap([]const u8)).init(allocator);
-    _ = iniConfig;
+    var iniConfig = std.StringHashMap(std.StringHashMap([]u8)).init(allocator);
+    //defer allocator.free(iniConfig);
 
     var token_iter = std.mem.tokenizeScalar(u8, buffer, '\n');
     var section: [256]u8 = undefined;
     var key: [256]u8 = undefined;
-    @memset(&key, 0);
     var val: [256]u8 = undefined;
-    @memset(&val, 0);
     while (token_iter.next()) |token| {
         std.debug.print("Token: |{s}|\n", .{ token });
         if (token[0] == 170) {
@@ -34,6 +32,7 @@ fn parseFile(allocator: std.mem.Allocator, filename: []const u8) !void {
         if (token[0] == '[' and token[token.len-1] == ']') {
             @memset(&section, 0);
             @memcpy(section[0..token.len-2], token[1..token.len-1]);
+
             std.debug.print("Section: |{s}|\n", .{ section });
             continue;
         }
@@ -44,11 +43,15 @@ fn parseFile(allocator: std.mem.Allocator, filename: []const u8) !void {
         defer allocator.free(buf);
         var numSpaces: u8 = 0;
         var delimiter_idx: usize = 0;
+        var sectionMap = std.StringHashMap([]u8).init(allocator);
         for (token,0..) |c,i| {
             if (c == ';' or c == '#') {
                 @memcpy(val[0..i-delimiter_idx], buf[0..i-delimiter_idx]);
                 @memset(buf, 0);
-                std.debug.print("Val: |{s}|\n", .{ val });
+                std.debug.print("putting (key,val): ({s},{s})\n", .{ key, val });
+                const k = try allocator.dupe(u8, &key);
+                const v = try allocator.dupe(u8, &val);
+                try sectionMap.put(k, v);
                 break;
             }
             if (c == '=') {
@@ -56,7 +59,6 @@ fn parseFile(allocator: std.mem.Allocator, filename: []const u8) !void {
                 @memset(buf, 0);
                 numSpaces = 0;
                 delimiter_idx = i;
-                std.debug.print("Key: |{s}|\n", .{ key });
                 continue;
             }
             if (c == ' ') {
@@ -67,20 +69,36 @@ fn parseFile(allocator: std.mem.Allocator, filename: []const u8) !void {
             if (i == token.len-1) {
                 @memcpy(val[0..i-delimiter_idx+1], buf[0..i-delimiter_idx+1]);
                 @memset(buf, 0);
-                std.debug.print("Val: |{s}|\n", .{ val });
+                std.debug.print("putting (key,val): ({s},{s})\n", .{ key, val });
+                const k = try allocator.dupe(u8, &key);
+                const v = try allocator.dupe(u8, &val);
+                try sectionMap.put(k, v);
             }
 
         }
-        
+
+        const s = try allocator.dupe(u8, &section);
+        try iniConfig.put(s, sectionMap);   
     }
+
+    var key_iter = iniConfig.keyIterator();
+    while (key_iter.next()) |k| {
+        std.debug.print("key: {s}\n", .{ k.* });
+        var k_iter = iniConfig.get(k.*).?.keyIterator();
+        while (k_iter.next()) |i| {
+            std.debug.print("\tkey: {s}\n", .{ i.* });
+            std.debug.print("\tval: {s}\n", .{ iniConfig.get(k.*).?.get(i.*).?});
+        }
+    }
+    return iniConfig;
 }
 
 
 test "parse basic.ini" {
     const allocator = std.testing.allocator;
-    try parseFile(allocator, "test/files/basic.ini");
-
-    try std.testing.expectEqual(1,1);
+    const config = try parseFile(allocator, "test/files/basic.ini");
+    
+    try std.testing.expectEqual(config.get("general").?.get("active").?,"true");
 }
 
 test "parse comments_and_spaces.ini" {
