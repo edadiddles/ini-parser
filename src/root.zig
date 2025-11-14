@@ -14,13 +14,15 @@ fn parseFile(allocator: std.mem.Allocator, filename: []const u8) !std.StringHash
 
     _ = try file.read(buffer);
 
-    var iniConfig = std.StringHashMap(std.StringHashMap([]u8)).init(allocator);
+    var iniConfig: std.StringHashMap(std.StringHashMap([]u8)) = .init(allocator);
     //defer allocator.free(iniConfig);
 
     var token_iter = std.mem.tokenizeScalar(u8, buffer, '\n');
     var section: [256]u8 = undefined;
     var key: [256]u8 = undefined;
     var val: [256]u8 = undefined;
+
+    var sectionMap: std.StringHashMap([]u8) = .init(allocator);
     while (token_iter.next()) |token| {
         std.debug.print("Token: |{s}|\n", .{ token });
         if (token[0] == 170) {
@@ -29,11 +31,12 @@ fn parseFile(allocator: std.mem.Allocator, filename: []const u8) !std.StringHash
         if (token[0] == ';' or token[0] == '#') {
             continue;
         }
-        if (token[0] == '[' and token[token.len-1] == ']') {
+        if (token[0] == '[' and token[token.len-1] == ']') {         
             @memset(&section, 0);
             @memcpy(section[0..token.len-2], token[1..token.len-1]);
 
             std.debug.print("Section: |{s}|\n", .{ section });
+            sectionMap = .init(allocator);
             continue;
         }
         
@@ -43,7 +46,6 @@ fn parseFile(allocator: std.mem.Allocator, filename: []const u8) !std.StringHash
         defer allocator.free(buf);
         var numSpaces: u8 = 0;
         var delimiter_idx: usize = 0;
-        var sectionMap = std.StringHashMap([]u8).init(allocator);
         for (token,0..) |c,i| {
             if (c == ';' or c == '#') {
                 @memcpy(val[0..i-delimiter_idx], buf[0..i-delimiter_idx]);
@@ -77,22 +79,13 @@ fn parseFile(allocator: std.mem.Allocator, filename: []const u8) !std.StringHash
 
         }
 
+        std.debug.print("adding section: {s}\n", .{ section });
         const s = try allocator.dupe(u8, &section);
-        try iniConfig.put(s, sectionMap);   
+        try iniConfig.put(s, sectionMap);
     }
 
-    var key_iter = iniConfig.keyIterator();
-    while (key_iter.next()) |k| {
-        std.debug.print("key: {s}\n", .{ k.* });
-        var k_iter = iniConfig.get(k.*).?.keyIterator();
-        while (k_iter.next()) |i| {
-            std.debug.print("\tkey: {s}\n", .{ i.* });
-            std.debug.print("\tval: {s}\n", .{ iniConfig.get(k.*).?.get(i.*).?});
-        }
-    }
     return iniConfig;
 }
-
 
 test "parse basic.ini" {
     const allocator = std.testing.allocator;
@@ -103,49 +96,49 @@ test "parse basic.ini" {
 
 test "parse comments_and_spaces.ini" {
     const allocator = std.testing.allocator;
-    try parseFile(allocator, "test/files/comments_and_spaces.ini");
+    _ = try parseFile(allocator, "test/files/comments_and_spaces.ini");
 
     try std.testing.expectEqual(1,1);
 }
 
 test "parse duplicates.ini" {
     const allocator = std.testing.allocator;
-    try parseFile(allocator, "test/files/duplicates.ini");
+    _ = try parseFile(allocator, "test/files/duplicates.ini");
 
     try std.testing.expectEqual(1,1);
 }
 
 test "parse large.ini" {
     const allocator = std.testing.allocator;
-    try parseFile(allocator, "test/files/large.ini");
+    _ = try parseFile(allocator, "test/files/large.ini");
 
     try std.testing.expectEqual(1,1);
 }
 
 test "parse malformed.ini" {
     const allocator = std.testing.allocator;
-    try parseFile(allocator, "test/files/malformed.ini");
+    _ = try parseFile(allocator, "test/files/malformed.ini");
 
     try std.testing.expectEqual(1,1);
 }
 
 test "parse missing_section.ini" {
     const allocator = std.testing.allocator;
-    try parseFile(allocator, "test/files/missing_section.ini");
+    _ = try parseFile(allocator, "test/files/missing_section.ini");
 
     try std.testing.expectEqual(1,1);
 }
 
 test "parse nested_like.ini" {
     const allocator = std.testing.allocator;
-    try parseFile(allocator, "test/files/nested_like.ini");
+    _ = try parseFile(allocator, "test/files/nested_like.ini");
 
     try std.testing.expectEqual(1,1);
 }
 
 test "parse quoted_values.ini" {
     const allocator = std.testing.allocator;
-    try parseFile(allocator, "test/files/quoted_values.ini");
+    _ = try parseFile(allocator, "test/files/quoted_values.ini");
 
     try std.testing.expectEqual(1,1);
 }
