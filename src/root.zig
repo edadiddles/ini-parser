@@ -1,6 +1,103 @@
 //! By convention, root.zig is the root source file when making a library.
 const std = @import("std");
 
+const TokenType = enum{
+    LEFT_SQ_BRACKET, RIGHT_SQ_BRACKET,
+    EQUALS,
+    SEMI_COLON, POUND_SIGN,
+    DBL_QUOTE,
+    EOF,
+};
+
+const Token = struct{
+    type: TokenType,
+    literal: []u8,
+
+    pub fn init(t: TokenType, l: []u8) Token {
+        return Token{
+            .type = t,
+            .literal = l,
+        };
+    }
+};
+
+const Scanner = struct{
+    buf: []u8,
+    tokens: []Token,
+    token_pos: u16,
+
+    pos: u16,
+    read_pos: u16,
+
+    pub fn init(allocator: std.mem.Allocator, buffer: []u8) !Scanner {
+        return Scanner{
+            .buf = buffer,
+            .tokens = try allocator.alloc(Token, 64),
+            .token_pos = 0,
+            .pos = 0,
+            .read_pos = 0,
+        };
+    }
+
+    pub fn deinit(self: Scanner, allocator: std.mem.Allocator) void {
+        allocator.free(self.tokens);
+    }
+
+    pub fn scan(self: *Scanner) void { 
+        while (self.pos < self.buf.len and self.buf[self.pos] != 170) {
+            self.pos = self.read_pos;
+            self.scan_token();
+        }
+
+        self.add_token(TokenType.EOF);
+    }
+
+    fn scan_token(self: *Scanner) void {
+        const char = self.read_char();
+        switch(char) {
+            '[' => self.add_token(TokenType.LEFT_SQ_BRACKET),
+            ']' => self.add_token(TokenType.RIGHT_SQ_BRACKET),
+            '=' => self.add_token(TokenType.EQUALS),
+            ';' => self.add_token(TokenType.SEMI_COLON),
+            '#' => self.add_token(TokenType.POUND_SIGN),
+            '"' => self.add_token(TokenType.DBL_QUOTE),
+            else => {
+                std.debug.print("Token {} is not found.\n", .{char});
+            },
+        }
+    }
+
+    fn add_token(self: *Scanner, token_type: TokenType) void {
+        self.tokens[self.token_pos] = Token.init(token_type, &[0]u8{});
+        self.token_pos += 1;
+    }
+
+    fn read_char(self: *Scanner) u8 {
+        self.read_pos += 1;
+        return self.buf[self.read_pos];
+    }
+
+    fn is_letter(c: u8) bool {
+        return (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z');
+    }
+
+    fn is_whitespace(c: u8) bool {
+        return c == ' ' or c == '\n';
+    }
+
+};
+
+fn scan(allocator: std.mem.Allocator, filename: []const u8) !void {
+    const buffer = try allocator.alloc(u8, 1024);
+    defer allocator.free(buffer);
+
+    try readFile(filename, buffer);
+
+    var scanner = try Scanner.init(allocator, buffer);
+    defer scanner.deinit(allocator);
+    scanner.scan(); 
+}
+
 fn parse(allocator: std.mem.Allocator, filename: []const u8) !std.StringHashMap(std.StringHashMap([]u8)) {
     const buffer = try allocator.alloc(u8, 1024);
     defer allocator.free(buffer);
@@ -91,6 +188,11 @@ fn parseFile(allocator: std.mem.Allocator, buffer: []u8) !std.StringHashMap(std.
     }
 
     return iniConfig;
+}
+
+test "test scanner" {
+    const allocator = std.testing.allocator;
+    try scan(allocator, "test/files/basic.ini");
 }
 
 test "parse basic.ini" {
