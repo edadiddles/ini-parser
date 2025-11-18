@@ -6,7 +6,7 @@ const TokenType = enum{
     EQUALS,
     SEMI_COLON, POUND_SIGN,
     DBL_QUOTE,
-    IDENTIFIER,
+    IDENTIFIER, NUMBER, STRING,
     EOF,
 };
 
@@ -66,6 +66,8 @@ const Scanner = struct{
             else => {
                 if (self.is_letter(char)) {
                     self.identifier();
+                } else if(self.is_number(char)) {
+                    self.number();
                 } else if (self.is_whitespace(char)) {
                     std.debug.print("Found whitespace\n", .{});
                 } else if (self.is_newline(char)) {
@@ -88,6 +90,30 @@ const Scanner = struct{
         }
 
         self.add_token(TokenType.IDENTIFIER, self.buf[self.pos+1..self.read_pos]);
+    }
+
+    fn string(self: *Scanner) void {
+        while(self.peek(0) != '"') {
+            _ = self.read_char();
+        }
+
+        self.add_token(TokenType.STRING, self.buf[self.pos+1..self.read_pos]);
+    }
+
+    fn number(self: *Scanner) void {
+        while(self.is_number(self.peek(0))) {
+            _ = self.read_char();
+        }
+
+        if (self.peek(0) == '.' and self.is_number(self.peek(1))) {
+            _ = self.read_char();
+
+            while(self.is_number(self.peek(0))) {
+                _ = self.read_char();
+            }
+        }
+
+        self.add_token(TokenType.NUMBER, self.buf[self.pos+1..self.read_pos]);
     }
 
     fn peek(self: Scanner, look_ahead: u8) u8 {
