@@ -3,16 +3,6 @@ const std = @import("std");
 const token_types = @import("token.zig");
 const lexer = @import("lexer.zig");
 
-fn scan(allocator: std.mem.Allocator, filename: []const u8) !void {
-    const buffer = try allocator.alloc(u8, 1024);
-    defer allocator.free(buffer);
-
-    try readFile(filename, buffer);
-
-    var scanner = try lexer.Scanner.init(allocator, buffer);
-    defer scanner.deinit(allocator);
-    scanner.scan(); 
-}
 
 fn parse(allocator: std.mem.Allocator, filename: []const u8) !std.StringHashMap(std.StringHashMap([]u8)) {
     const buffer = try allocator.alloc(u8, 1024);
@@ -59,11 +49,6 @@ fn parseFile(allocator: std.mem.Allocator, tokens: *[]token_types.Token) std.Str
     }
 
     return iniConfig;
-}
-
-test "test scanner" {
-    const allocator = std.testing.allocator;
-    try scan(allocator, "test/files/basic.ini");
 }
 
 test "parse basic.ini" {
