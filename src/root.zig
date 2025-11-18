@@ -50,28 +50,27 @@ const Scanner = struct{
             self.scan_token();
         }
 
-        self.add_token(TokenType.EOF, null);
+        self.add_token(TokenType.EOF, "eof");
         self.print_tokens();
     }
 
     fn scan_token(self: *Scanner) void {
         const char = self.read_char();
         switch(char) {
-            '[' => self.add_token(TokenType.LEFT_SQ_BRACKET, null),
-            ']' => self.add_token(TokenType.RIGHT_SQ_BRACKET, null),
-            '=' => self.add_token(TokenType.EQUALS, null),
-            ';' => self.add_token(TokenType.SEMI_COLON, null),
-            '#' => self.add_token(TokenType.POUND_SIGN, null),
-            '"' => self.add_token(TokenType.DBL_QUOTE, null),
+            '[' => self.add_token(TokenType.LEFT_SQ_BRACKET, self.buf[self.pos..self.read_pos]),
+            ']' => self.add_token(TokenType.RIGHT_SQ_BRACKET, self.buf[self.pos..self.read_pos]),
+            '=' => self.add_token(TokenType.EQUALS, self.buf[self.pos..self.read_pos]),
+            ';','#' => self.comment(),
+            '"' => self.string(),
             else => {
                 if (self.is_letter(char)) {
                     self.identifier();
                 } else if(self.is_number(char)) {
                     self.number();
                 } else if (self.is_whitespace(char)) {
-                    std.debug.print("Found whitespace\n", .{});
+                    // pass
                 } else if (self.is_newline(char)) {
-                    std.debug.print("Found newline\n", .{});
+                    // pass
                 } else {
                     std.debug.print("Token {c} is not found.\n", .{char});
                 }
@@ -79,8 +78,8 @@ const Scanner = struct{
         }
     }
 
-    fn add_token(self: *Scanner, token_type: TokenType, literal: ?[]const u8) void {
-        self.tokens[self.token_pos] = Token.init(token_type, literal orelse "");
+    fn add_token(self: *Scanner, token_type: TokenType, literal: []const u8) void {
+        self.tokens[self.token_pos] = Token.init(token_type, literal);
         self.token_pos += 1;
     }
 
@@ -89,7 +88,7 @@ const Scanner = struct{
             _ = self.read_char();
         }
 
-        self.add_token(TokenType.IDENTIFIER, self.buf[self.pos+1..self.read_pos]);
+        self.add_token(TokenType.IDENTIFIER, self.buf[self.pos..self.read_pos]);
     }
 
     fn string(self: *Scanner) void {
@@ -97,7 +96,7 @@ const Scanner = struct{
             _ = self.read_char();
         }
 
-        self.add_token(TokenType.STRING, self.buf[self.pos+1..self.read_pos]);
+        self.add_token(TokenType.STRING, self.buf[self.pos..self.read_pos]);
     }
 
     fn number(self: *Scanner) void {
@@ -113,7 +112,17 @@ const Scanner = struct{
             }
         }
 
-        self.add_token(TokenType.NUMBER, self.buf[self.pos+1..self.read_pos]);
+        self.add_token(TokenType.NUMBER, self.buf[self.pos..self.read_pos]);
+    }
+
+    fn comment(self: *Scanner) void {
+        while(!self.is_newline(self.peek(0)) and !self.is_eof()) {
+            _ = self.read_char();
+        }
+
+        if (self.is_newline(self.peek(0))) {
+            _ = self.read_char();
+        }
     }
 
     fn peek(self: Scanner, look_ahead: u8) u8 {
@@ -125,12 +134,13 @@ const Scanner = struct{
     }
 
     fn read_char(self: *Scanner) u8 {
+        const char = self.buf[self.read_pos];
         self.read_pos += 1;
-        return self.buf[self.read_pos];
+        return char;
     }
 
     fn is_eof(self: Scanner) bool {
-        return self.read_pos >= self.buf.len or self.buf[self.pos] == 170;
+        return self.read_pos >= self.buf.len or self.buf[self.read_pos] == 170;
     }
 
     fn is_letter(_: Scanner, c: u8) bool {
