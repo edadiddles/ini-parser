@@ -1,7 +1,7 @@
 //! By convention, root.zig is the root source file when making a library.
 const std = @import("std");
-const token_types = @import("token.zig");
 const lexer = @import("lexer.zig");
+const parser = @import("parser.zig");
 
 
 fn parse(allocator: std.mem.Allocator, filename: []const u8) !std.StringHashMap(std.StringHashMap([]u8)) {
@@ -15,7 +15,8 @@ fn parse(allocator: std.mem.Allocator, filename: []const u8) !std.StringHashMap(
 
     scanner.scan();
 
-    const iniConfig = parseFile(allocator, &scanner.tokens);
+    var p = parser.Parser.init(&scanner.tokens);
+    const iniConfig = p.parse(allocator);
     return iniConfig;
 }
 
@@ -29,26 +30,6 @@ fn readFile(filename: []const u8, buffer: []u8) !void {
 
 
     _ = try file.read(buffer);
-}
-
-fn parseFile(allocator: std.mem.Allocator, tokens: *[]token_types.Token) std.StringHashMap(std.StringHashMap([]u8)) {
-    var iniConfig: std.StringHashMap(std.StringHashMap([]u8)) = .init(allocator);
-    defer iniConfig.deinit();
-
-    for (tokens.*) |token| {
-        switch(token.type) {
-            .EOF => break,
-            .SECTION => break,
-            //.IDENTIFIER => 
-            else => { break; },
-        }
-        if (token.type == .EOF) {
-            break;
-        } else
-        std.debug.print("processing token {}...\n", .{ token });
-    }
-
-    return iniConfig;
 }
 
 test "parse basic.ini" {
@@ -86,49 +67,49 @@ test "parse basic.ini" {
 
 test "parse comments_and_spaces.ini" {
     const allocator = std.testing.allocator;
-    _ = try parseFile(allocator, "test/files/comments_and_spaces.ini");
+    _ = try parse(allocator, "test/files/comments_and_spaces.ini");
 
     try std.testing.expectEqual(1,1);
 }
 
 test "parse duplicates.ini" {
     const allocator = std.testing.allocator;
-    _ = try parseFile(allocator, "test/files/duplicates.ini");
+    _ = try parse(allocator, "test/files/duplicates.ini");
 
     try std.testing.expectEqual(1,1);
 }
 
 test "parse large.ini" {
     const allocator = std.testing.allocator;
-    _ = try parseFile(allocator, "test/files/large.ini");
+    _ = try parse(allocator, "test/files/large.ini");
 
     try std.testing.expectEqual(1,1);
 }
 
 test "parse malformed.ini" {
     const allocator = std.testing.allocator;
-    _ = try parseFile(allocator, "test/files/malformed.ini");
+    _ = try parse(allocator, "test/files/malformed.ini");
 
     try std.testing.expectEqual(1,1);
 }
 
 test "parse missing_section.ini" {
     const allocator = std.testing.allocator;
-    _ = try parseFile(allocator, "test/files/missing_section.ini");
+    _ = try parse(allocator, "test/files/missing_section.ini");
 
     try std.testing.expectEqual(1,1);
 }
 
 test "parse nested_like.ini" {
     const allocator = std.testing.allocator;
-    _ = try parseFile(allocator, "test/files/nested_like.ini");
+    _ = try parse(allocator, "test/files/nested_like.ini");
 
     try std.testing.expectEqual(1,1);
 }
 
 test "parse quoted_values.ini" {
     const allocator = std.testing.allocator;
-    _ = try parseFile(allocator, "test/files/quoted_values.ini");
+    _ = try parse(allocator, "test/files/quoted_values.ini");
 
     try std.testing.expectEqual(1,1);
 }
