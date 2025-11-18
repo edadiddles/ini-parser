@@ -6,14 +6,15 @@ const TokenType = enum{
     EQUALS,
     SEMI_COLON, POUND_SIGN,
     DBL_QUOTE,
+    IDENTIFIER,
     EOF,
 };
 
 const Token = struct{
     type: TokenType,
-    literal: []u8,
+    literal: []const u8,
 
-    pub fn init(t: TokenType, l: []u8) Token {
+    pub fn init(t: TokenType, l: []const u8) Token {
         return Token{
             .type = t,
             .literal = l,
@@ -44,32 +45,57 @@ const Scanner = struct{
     }
 
     pub fn scan(self: *Scanner) void { 
-        while (self.pos < self.buf.len and self.buf[self.pos] != 170) {
+        while (!self.is_eof()) {
             self.pos = self.read_pos;
             self.scan_token();
         }
 
-        self.add_token(TokenType.EOF);
+        self.add_token(TokenType.EOF, null);
+        self.print_tokens();
     }
 
     fn scan_token(self: *Scanner) void {
         const char = self.read_char();
         switch(char) {
-            '[' => self.add_token(TokenType.LEFT_SQ_BRACKET),
-            ']' => self.add_token(TokenType.RIGHT_SQ_BRACKET),
-            '=' => self.add_token(TokenType.EQUALS),
-            ';' => self.add_token(TokenType.SEMI_COLON),
-            '#' => self.add_token(TokenType.POUND_SIGN),
-            '"' => self.add_token(TokenType.DBL_QUOTE),
+            '[' => self.add_token(TokenType.LEFT_SQ_BRACKET, null),
+            ']' => self.add_token(TokenType.RIGHT_SQ_BRACKET, null),
+            '=' => self.add_token(TokenType.EQUALS, null),
+            ';' => self.add_token(TokenType.SEMI_COLON, null),
+            '#' => self.add_token(TokenType.POUND_SIGN, null),
+            '"' => self.add_token(TokenType.DBL_QUOTE, null),
             else => {
-                std.debug.print("Token {} is not found.\n", .{char});
+                if (self.is_letter(char)) {
+                    self.identifier();
+                } else if (self.is_whitespace(char)) {
+                    std.debug.print("Found whitespace\n", .{});
+                } else if (self.is_newline(char)) {
+                    std.debug.print("Found newline\n", .{});
+                } else {
+                    std.debug.print("Token {c} is not found.\n", .{char});
+                }
             },
         }
     }
 
-    fn add_token(self: *Scanner, token_type: TokenType) void {
-        self.tokens[self.token_pos] = Token.init(token_type, &[0]u8{});
+    fn add_token(self: *Scanner, token_type: TokenType, literal: ?[]const u8) void {
+        self.tokens[self.token_pos] = Token.init(token_type, literal orelse "");
         self.token_pos += 1;
+    }
+
+    fn identifier(self: *Scanner) void {
+        while(self.is_alphanumeric(self.peek(0))) {
+            _ = self.read_char();
+        }
+
+        self.add_token(TokenType.IDENTIFIER, self.buf[self.pos+1..self.read_pos]);
+    }
+
+    fn peek(self: Scanner, look_ahead: u8) u8 {
+        if (self.is_eof()) {
+            return 170;
+        }
+
+        return self.buf[self.read_pos + look_ahead];
     }
 
     fn read_char(self: *Scanner) u8 {
@@ -77,12 +103,37 @@ const Scanner = struct{
         return self.buf[self.read_pos];
     }
 
-    fn is_letter(c: u8) bool {
-        return (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z');
+    fn is_eof(self: Scanner) bool {
+        return self.read_pos >= self.buf.len or self.buf[self.pos] == 170;
     }
 
-    fn is_whitespace(c: u8) bool {
-        return c == ' ' or c == '\n';
+    fn is_letter(_: Scanner, c: u8) bool {
+        return (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or (c == '_');
+    }
+
+    fn is_number(_: Scanner, c: u8) bool {
+        return c >= '0' and c <= '9';
+    }
+
+    fn is_alphanumeric(self: Scanner, c: u8) bool {
+        return self.is_letter(c) or self.is_number(c);
+    }
+
+    fn is_whitespace(_: Scanner, c: u8) bool {
+        return c == ' ';
+    }
+
+    fn is_newline(_: Scanner, c: u8) bool {
+        return c == '\n';
+    }
+
+    fn print_tokens(self: Scanner) void {
+        for (self.tokens) |token| {
+            std.debug.print("Token: {s}\n", .{ token.literal });
+            if (token.type == TokenType.EOF) {
+                break;
+            }
+        }
     }
 
 };
