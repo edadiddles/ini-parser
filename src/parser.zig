@@ -1,11 +1,12 @@
 const std = @import("std");
 const token_types = @import("token.zig");
+const iniConfig = @import("ini-config.zig");
 
 pub const Parser = struct{
     read_pos: u8,
 
     tokens: *[]token_types.Token,
-    parseMap: std.StringHashMap(std.StringHashMap([]const u8)),
+    parseMap: iniConfig.IniConfig,
 
     pub fn init(allocator: std.mem.Allocator, tokens: *[]token_types.Token) Parser {
         return Parser{
@@ -19,28 +20,23 @@ pub const Parser = struct{
         allocator.free(self.parseMap);
     }
 
-    pub fn parse(self: *Parser, allocator: std.mem.Allocator) !std.StringHashMap(std.StringHashMap([]const u8)) {
-        var section: []const u8 = ""[0..];
-        var sectionMap: std.StringHashMap([]const u8) = .init(allocator);
+    pub fn parse(self: *Parser, allocator: std.mem.Allocator) !iniConfig.IniConfig {
         while(true) {
             const token = self.read_token();
             std.debug.print("processing token {}\n", .{ token });
 
             switch(token.type) {
                 token_types.TokenType.EOF => {
-                    try self.parseMap.put(section, sectionMap);
+                    //try self.parseMap.putSection(allocator);
+                    try self.parseMap.finalize(allocator);
                     break;
                 },
                 token_types.TokenType.SECTION => {
-                    if (section.len != 0) {
-                        try self.parseMap.put(section, sectionMap);
-                        sectionMap = .init(allocator);
-                    }
-
-                    section = try allocator.dupe(u8, token.literal);
+                    try self.parseMap.putSection(allocator);
+                    try self.parseMap.setSection(allocator, token.literal);
                 },
                 token_types.TokenType.IDENTIFIER => {
-                    const key = try allocator.dupe(u8, token.literal);
+                    const key = token.literal;
                     if(self.peek(0).type != token_types.TokenType.EQUALS) {
                         std.debug.print("unexpected token after identifier: {}", .{ token });
                     }
@@ -51,8 +47,8 @@ pub const Parser = struct{
                        token_types.TokenType.STRING,
                        token_types.TokenType.IDENTIFIER => {
                            const t = self.read_token();
-                           const val = try allocator.dupe(u8, t.literal);
-                           try sectionMap.put(key, val);
+                           const val = t.literal;
+                           try self.parseMap.addPair(allocator, key, val);
                        },
                        else => {
                            std.debug.print("unexpected token after equals: {}", .{ token });
