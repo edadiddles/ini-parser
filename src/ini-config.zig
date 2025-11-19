@@ -22,9 +22,9 @@ pub const IniConfig = struct{
                 allocator.free(self.map.get(key.*).?.get(k.*).?);
                 allocator.free(k.*);
             }
+            self.map.getEntry(key.*).?.value_ptr.deinit();
             allocator.free(key.*);
         }
-        self.sectionMap.deinit();
         self.map.deinit();
     }
 
@@ -41,7 +41,7 @@ pub const IniConfig = struct{
             return;
         }
         try self.map.put(self.section, self.sectionMap);
-        self.sectionMap = .init(allocator);
+        self.initSectionMap(allocator);
     }
 
     pub fn finalize(self: *IniConfig, allocator: std.mem.Allocator) !void {
