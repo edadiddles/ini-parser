@@ -4,7 +4,7 @@ const lexer = @import("lexer.zig");
 const parser = @import("parser.zig");
 
 
-fn parse(allocator: std.mem.Allocator, filename: []const u8) !std.StringHashMap(std.StringHashMap([]u8)) {
+fn parse(allocator: std.mem.Allocator, filename: []const u8) !std.StringHashMap(std.StringHashMap([]const u8)) {
     const buffer = try allocator.alloc(u8, 1024);
     defer allocator.free(buffer);
 
@@ -15,7 +15,9 @@ fn parse(allocator: std.mem.Allocator, filename: []const u8) !std.StringHashMap(
 
     scanner.scan();
 
-    var p = parser.Parser.init(&scanner.tokens);
+    var p = parser.Parser.init(allocator, &scanner.tokens);
+    //defer p.deinit(allocator);
+
     const iniConfig = p.parse(allocator);
     return iniConfig;
 }
@@ -36,33 +38,18 @@ test "parse basic.ini" {
     const allocator = std.testing.allocator;
     const config = try parse(allocator, "test/files/basic.ini");
 
-    var section: [256]u8 = undefined;
-    var key: [256]u8 = undefined;
-    var val: [256]u8 = undefined;
+    var key_iter = config.keyIterator();
+    while(key_iter.next()) |key| {
+        std.debug.print("Section: {s}\n", .{ key.* });
+        var k_iter = config.get(key.*).?.keyIterator();
+        while(k_iter.next()) |k| {
+            std.debug.print("{s}={s}\n", .{ k.*, config.get(key.*).?.get(k.*).? });
+        }
+    }
 
-    @memset(&section, 0);
-    @memset(&key, 0);
-    @memset(&val, 0);
-    @memcpy(section[0..7], "general");
-    @memcpy(key[0..6], "active");
-    @memcpy(val[0..4], "true");
-    try std.testing.expectEqualStrings(config.get(&section).?.get(&key).?, &val);
-    
-    @memset(&section, 0);
-    @memset(&key, 0);
-    @memset(&val, 0);
-    @memcpy(section[0..7], "general");
-    @memcpy(key[0..7], "version");
-    @memcpy(val[0..3], "1.0");
-    try std.testing.expectEqualStrings(config.get(&section).?.get(&key).?, &val);
-    
-    @memset(&section, 0);
-    @memset(&key, 0);
-    @memset(&val, 0);
-    @memcpy(section[0..7], "general");
-    @memcpy(key[0..4], "name");
-    @memcpy(val[0..7], "TestApp");
-    try std.testing.expectEqualStrings(config.get(&section).?.get(&key).?, &val);
+    try std.testing.expectEqualStrings(config.get("general").?.get("active").?, "true");
+    try std.testing.expectEqualStrings(config.get("general").?.get("version").?, "1.0");
+    try std.testing.expectEqualStrings(config.get("general").?.get("name").?, "TestApp");
 }
 
 test "parse comments_and_spaces.ini" {
