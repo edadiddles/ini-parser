@@ -62,6 +62,8 @@ test "parse duplicates.ini" {
     var config = try parse(allocator, "test/files/duplicates.ini");
     defer config.deinit(allocator);
 
+    config.print();
+
     try std.testing.expectEqualStrings(config.getConfig().get("server").?.get("host").?, "localhost");
     try std.testing.expectEqualStrings(config.getConfig().get("server").?.get("port").?, "8080");
     try std.testing.expectEqualStrings(config.getConfig().get("server").?.get("mode").?, "production");    

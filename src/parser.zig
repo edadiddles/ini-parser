@@ -27,11 +27,10 @@ pub const Parser = struct{
 
             switch(token.type) {
                 token_types.TokenType.EOF => {
-                    try self.parseMap.finalize(allocator);
+                    try self.parseMap.finalize();
                     break;
                 },
                 token_types.TokenType.SECTION => {
-                    try self.parseMap.putSection(allocator);
                     try self.parseMap.setSection(allocator, token.literal);
                 },
                 token_types.TokenType.IDENTIFIER => {
