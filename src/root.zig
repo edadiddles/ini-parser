@@ -46,23 +46,34 @@ test "parse basic.ini" {
 
 test "parse comments_and_spaces.ini" {
     const allocator = std.testing.allocator;
-    _ = try parse(allocator, "test/files/comments_and_spaces.ini");
+    var config = try parse(allocator, "test/files/comments_and_spaces.ini");
+    defer config.deinit(allocator);
 
-    try std.testing.expectEqual(1,1);
+    try std.testing.expectEqualStrings(config.getConfig().get("paths").?.get("home").?, "/usr/local/bin");
+    try std.testing.expectEqualStrings(config.getConfig().get("paths").?.get("data_dir").?, "/var/data");
+    try std.testing.expectEqualStrings(config.getConfig().get("paths").?.get("logs").?, "/var/logs");
+    
+    try std.testing.expectEqualStrings(config.getConfig().get("network").?.get("host").?, "example.com");
+    try std.testing.expectEqualStrings(config.getConfig().get("network").?.get("port").?, "8080");
 }
 
 test "parse duplicates.ini" {
     const allocator = std.testing.allocator;
-    _ = try parse(allocator, "test/files/duplicates.ini");
+    var config = try parse(allocator, "test/files/duplicates.ini");
+    defer config.deinit(allocator);
 
-    try std.testing.expectEqual(1,1);
+    try std.testing.expectEqualStrings(config.getConfig().get("server").?.get("host").?, "localhost");
+    try std.testing.expectEqualStrings(config.getConfig().get("server").?.get("port").?, "8080");
+    try std.testing.expectEqualStrings(config.getConfig().get("server").?.get("mode").?, "production");    
 }
 
 test "parse large.ini" {
     const allocator = std.testing.allocator;
-    _ = try parse(allocator, "test/files/large.ini");
+    var config = try parse(allocator, "test/files/large.ini");
+    defer config.deinit(allocator);
 
-    try std.testing.expectEqual(1,1);
+    try std.testing.expectEqualStrings(config.getConfig().get("section").?.get("key0").?, "value0");
+    try std.testing.expectEqualStrings(config.getConfig().get("section").?.get("key999").?, "value999");
 }
 
 test "parse malformed.ini" {

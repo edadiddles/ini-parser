@@ -41,6 +41,7 @@ pub const Scanner = struct{
             '=' => self.add_token(token_types.TokenType.EQUALS, self.buf[self.pos..self.read_pos]),
             ';','#' => self.comment(),
             '"' => self.string(),
+            '/' => self.fspath(),
             else => {
                 if (self.is_letter(char)) {
                     self.identifier();
@@ -94,6 +95,14 @@ pub const Scanner = struct{
         self.add_token(token_types.TokenType.NUMBER, self.buf[self.pos..self.read_pos]);
     }
 
+    fn fspath(self: *Scanner) void {
+        while(self.is_letter(self.peek(0)) or self.peek(0) == '/') {
+            _ = self.read_char();
+        }
+
+        self.add_token(token_types.TokenType.FS_PATH, self.buf[self.pos..self.read_pos]);
+    }
+
     fn section(self: *Scanner) void {
         while(self.peek(0) != ']') {
             _ = self.read_char();
@@ -132,7 +141,7 @@ pub const Scanner = struct{
     }
 
     fn is_letter(_: Scanner, c: u8) bool {
-        return (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or (c == '_');
+        return (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or (c == '_') or (c == '.');
     }
 
     fn is_number(_: Scanner, c: u8) bool {

@@ -3,7 +3,7 @@ pub const TokenType = enum{
     EQUALS,
     SEMI_COLON, POUND_SIGN,
     DBL_QUOTE,
-    IDENTIFIER, NUMBER, STRING, SECTION,
+    IDENTIFIER, NUMBER, STRING, FS_PATH, SECTION,
     EOF,
 };
 

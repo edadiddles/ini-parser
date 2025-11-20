@@ -58,4 +58,5 @@ pub const IniConfig = struct{
 
     fn initMap(self: *IniConfig, allocator: std.mem.Allocator) void {
         self.map = .init(allocator);
-    }};
+    }
+};

@@ -27,7 +27,6 @@ pub const Parser = struct{
 
             switch(token.type) {
                 token_types.TokenType.EOF => {
-                    //try self.parseMap.putSection(allocator);
                     try self.parseMap.finalize(allocator);
                     break;
                 },
@@ -38,25 +37,26 @@ pub const Parser = struct{
                 token_types.TokenType.IDENTIFIER => {
                     const key = token.literal;
                     if(self.peek(0).type != token_types.TokenType.EQUALS) {
-                        std.debug.print("unexpected token after identifier: {}", .{ token });
+                        std.debug.print("unexpected token after identifier: {}\n", .{ token });
                     }
 
                     _ = self.read_token();
                     switch(self.peek(0).type) {
                        token_types.TokenType.NUMBER, 
                        token_types.TokenType.STRING,
-                       token_types.TokenType.IDENTIFIER => {
+                       token_types.TokenType.IDENTIFIER,
+                       token_types.TokenType.FS_PATH => {
                            const t = self.read_token();
                            const val = t.literal;
                            try self.parseMap.addPair(allocator, key, val);
                        },
                        else => {
-                           std.debug.print("unexpected token after equals: {}", .{ token });
+                           std.debug.print("unexpected token after equals: {}\n", .{ token });
                        },
                     }
                 },
                 else => {
-                    std.debug.print("unknown token: {}", .{ token });
+                    std.debug.print("unknown token: {}\n", .{ token });
                 }
             }
         }
