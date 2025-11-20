@@ -6,15 +6,13 @@ const iniConfig = @import("ini-config.zig");
 
 
 fn parse(allocator: std.mem.Allocator, filename: []const u8) !iniConfig.IniConfig {
-    const buffer = try allocator.alloc(u8, 1024);
+    const buffer = try readFile(allocator, filename);
     defer allocator.free(buffer);
-
-    try readFile(filename, buffer);
 
     var scanner = try lexer.Scanner.init(allocator, buffer);
     defer scanner.deinit(allocator);
 
-    scanner.scan();
+    try scanner.scan(allocator);
 
     var p = parser.Parser.init(allocator, &scanner.tokens);
     //defer p.deinit(allocator);
@@ -22,16 +20,26 @@ fn parse(allocator: std.mem.Allocator, filename: []const u8) !iniConfig.IniConfi
     return p.parse(allocator);
 }
 
-fn readFile(filename: []const u8, buffer: []u8) !void {
+fn readFile(allocator: std.mem.Allocator, filename: []const u8) ![]u8 {
     const file = try std.fs.cwd().openFile(filename, .{ .mode = .read_only });
     defer file.close();
 
     const stat = try file.stat();
     const size = stat.size;
-    _ = size;
+    std.debug.print("file size: {d}\n", .{ size });
 
-
+    const buffer = try allocator.alloc(u8, size); 
     _ = try file.read(buffer);
+
+    return buffer;
+}
+
+test "test readFile" {
+    const allocator = std.testing.allocator;
+    const buffer = try readFile(allocator, "test/files/large.ini");
+    defer allocator.free(buffer);
+
+    std.debug.print("{s}\n", .{ buffer });
 }
 
 test "parse basic.ini" {
@@ -62,7 +70,6 @@ test "parse duplicates.ini" {
     var config = try parse(allocator, "test/files/duplicates.ini");
     defer config.deinit(allocator);
 
-    config.print();
 
     try std.testing.expectEqualStrings(config.getConfig().get("server").?.get("host").?, "localhost");
     try std.testing.expectEqualStrings(config.getConfig().get("server").?.get("port").?, "8080");
@@ -74,6 +81,8 @@ test "parse large.ini" {
     var config = try parse(allocator, "test/files/large.ini");
     defer config.deinit(allocator);
 
+    config.print();
+    
     try std.testing.expectEqualStrings(config.getConfig().get("section").?.get("key0").?, "value0");
     try std.testing.expectEqualStrings(config.getConfig().get("section").?.get("key999").?, "value999");
 }

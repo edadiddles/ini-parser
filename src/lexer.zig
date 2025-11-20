@@ -24,29 +24,29 @@ pub const Scanner = struct{
         allocator.free(self.tokens);
     }
 
-    pub fn scan(self: *Scanner) void { 
+    pub fn scan(self: *Scanner, allocator: std.mem.Allocator) !void { 
         while (!self.is_eof()) {
             self.pos = self.read_pos;
-            self.scan_token();
+            try self.scan_token(allocator);
         }
 
-        self.add_token(token_types.TokenType.EOF, "eof");
+        try self.add_token(allocator, token_types.TokenType.EOF, "eof");
         self.print_tokens();
     }
 
-    fn scan_token(self: *Scanner) void {
+    fn scan_token(self: *Scanner, allocator: std.mem.Allocator) !void {
         const char = self.read_char();
         switch(char) {
-            '[' => self.section(),
-            '=' => self.add_token(token_types.TokenType.EQUALS, self.buf[self.pos..self.read_pos]),
+            '[' => try self.section(allocator),
+            '=' => try self.add_token(allocator, token_types.TokenType.EQUALS, self.buf[self.pos..self.read_pos]),
             ';','#' => self.comment(),
-            '"' => self.string(),
-            '/' => self.fspath(),
+            '"' => try self.string(allocator),
+            '/' => try self.fspath(allocator),
             else => {
                 if (self.is_letter(char)) {
-                    self.identifier();
+                    try self.identifier(allocator);
                 } else if(self.is_number(char)) {
-                    self.number();
+                    try self.number(allocator);
                 } else if (self.is_whitespace(char)) {
                     // pass
                 } else if (self.is_newline(char)) {
@@ -58,28 +58,42 @@ pub const Scanner = struct{
         }
     }
 
-    fn add_token(self: *Scanner, token_type: token_types.TokenType, literal: []const u8) void {
+    fn add_token(self: *Scanner, allocator: std.mem.Allocator, token_type: token_types.TokenType, literal: []const u8) !void {
+        if (self.token_pos >= self.tokens.len) {
+            const new_size = self.token_pos + 64;
+            if (allocator.resize(self.tokens, new_size)) {
+                std.debug.print("resizing successful {d}->{d}\n", .{ self.token_pos, new_size });
+                self.tokens.len = new_size;
+            } else {
+                std.debug.print("resizing unsuccessful {d}->{d}\n", .{ self.token_pos, new_size });
+                const new_tokens = try allocator.alloc(token_types.Token, new_size);
+                @memcpy(new_tokens[0..self.tokens.len], self.tokens);
+                allocator.free(self.tokens);
+                self.tokens = new_tokens;
+                std.debug.print("allocated new token arry -> {d}\n", .{ self.tokens.len });
+            }
+        }
         self.tokens[self.token_pos] = token_types.Token.init(token_type, literal);
         self.token_pos += 1;
     }
 
-    fn identifier(self: *Scanner) void {
+    fn identifier(self: *Scanner, allocator: std.mem.Allocator) !void {
         while(self.is_alphanumeric(self.peek(0))) {
             _ = self.read_char();
         }
 
-        self.add_token(token_types.TokenType.IDENTIFIER, self.buf[self.pos..self.read_pos]);
+        try self.add_token(allocator, token_types.TokenType.IDENTIFIER, self.buf[self.pos..self.read_pos]);
     }
 
-    fn string(self: *Scanner) void {
+    fn string(self: *Scanner, allocator: std.mem.Allocator) !void {
         while(self.peek(0) != '"') {
             _ = self.read_char();
         }
 
-        self.add_token(token_types.TokenType.STRING, self.buf[self.pos..self.read_pos]);
+        try self.add_token(allocator, token_types.TokenType.STRING, self.buf[self.pos..self.read_pos]);
     }
 
-    fn number(self: *Scanner) void {
+    fn number(self: *Scanner, allocator: std.mem.Allocator) !void {
         while(self.is_number(self.peek(0))) {
             _ = self.read_char();
         }
@@ -92,23 +106,23 @@ pub const Scanner = struct{
             }
         }
 
-        self.add_token(token_types.TokenType.NUMBER, self.buf[self.pos..self.read_pos]);
+        try self.add_token(allocator, token_types.TokenType.NUMBER, self.buf[self.pos..self.read_pos]);
     }
 
-    fn fspath(self: *Scanner) void {
+    fn fspath(self: *Scanner, allocator: std.mem.Allocator) !void {
         while(self.is_letter(self.peek(0)) or self.peek(0) == '/') {
             _ = self.read_char();
         }
 
-        self.add_token(token_types.TokenType.FS_PATH, self.buf[self.pos..self.read_pos]);
+        try self.add_token(allocator, token_types.TokenType.FS_PATH, self.buf[self.pos..self.read_pos]);
     }
 
-    fn section(self: *Scanner) void {
+    fn section(self: *Scanner, allocator: std.mem.Allocator) !void {
         while(self.peek(0) != ']') {
             _ = self.read_char();
         }
 
-        self.add_token(token_types.TokenType.SECTION, self.buf[self.pos+1..self.read_pos]);
+        try self.add_token(allocator, token_types.TokenType.SECTION, self.buf[self.pos+1..self.read_pos]);
         _ = self.read_char(); // consume the ]
     }
 

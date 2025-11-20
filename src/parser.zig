@@ -3,7 +3,7 @@ const token_types = @import("token.zig");
 const iniConfig = @import("ini-config.zig");
 
 pub const Parser = struct{
-    read_pos: u8,
+    read_pos: u16,
 
     tokens: *[]token_types.Token,
     parseMap: iniConfig.IniConfig,
