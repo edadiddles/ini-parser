@@ -1,6 +1,9 @@
 const std = @import("std");
 const token_types = @import("token.zig");
 
+const TokenError = error {
+    InvalidEscapeChar,
+};
 
 pub const Scanner = struct{
     buf: []u8,
@@ -21,6 +24,11 @@ pub const Scanner = struct{
     }
 
     pub fn deinit(self: Scanner, allocator: std.mem.Allocator) void {
+        for(self.tokens) |token| {
+            if(token.type == token_types.TokenType.STRING) {
+                allocator.free(token.literal);
+            }
+        }
         allocator.free(self.tokens);
     }
 
@@ -40,7 +48,8 @@ pub const Scanner = struct{
             '[' => try self.section(allocator),
             '=' => try self.add_token(allocator, token_types.TokenType.EQUALS, self.buf[self.pos..self.read_pos]),
             ';','#' => self.comment(),
-            '"' => try self.string(allocator),
+            '"' => try self.string(allocator, '"'),
+            '\'' => try self.string(allocator, '\''),
             '/' => try self.fspath(allocator),
             else => {
                 if (self.is_letter(char)) {
@@ -85,12 +94,39 @@ pub const Scanner = struct{
         try self.add_token(allocator, token_types.TokenType.IDENTIFIER, self.buf[self.pos..self.read_pos]);
     }
 
-    fn string(self: *Scanner, allocator: std.mem.Allocator) !void {
-        while(self.peek(0) != '"') {
-            _ = self.read_char();
+    fn string(self: *Scanner, allocator: std.mem.Allocator, quote_char: u8) !void {
+        const string_buf = try allocator.alloc(u8, 256);
+        defer allocator.free(string_buf);
+
+        var buf_idx: usize = 0;
+        while(self.peek(0) != quote_char) {
+            const c = self.read_char();
+            switch(c) {
+                '\\' => {
+                    const k = self.read_char();
+                    switch(k) {
+                        'n' => string_buf[buf_idx] = '\n',
+                        't' => string_buf[buf_idx] = '\t',
+                        '\\' => string_buf[buf_idx] = '\\',
+                        else => {
+                            std.debug.print("escape charactor not found {c}{c}\n", .{ c, k });
+                            return TokenError.InvalidEscapeChar; 
+                        } 
+                    }
+
+                },
+                else => {
+                    string_buf[buf_idx] = c;
+                }
+            }
+
+            buf_idx += 1;
         }
 
-        try self.add_token(allocator, token_types.TokenType.STRING, self.buf[self.pos..self.read_pos]);
+        try self.add_token(allocator, token_types.TokenType.STRING, try allocator.dupe(u8, string_buf[0..buf_idx]));
+
+        // consume end quote
+        _ = self.read_char();
     }
 
     fn number(self: *Scanner, allocator: std.mem.Allocator) !void {

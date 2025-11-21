@@ -110,7 +110,12 @@ test "parse nested_like.ini" {
 
 test "parse quoted_values.ini" {
     const allocator = std.testing.allocator;
-    _ = try parse(allocator, "test/files/quoted_values.ini");
+    var config = try parse(allocator, "test/files/quoted_values.ini");
+    defer config.deinit(allocator);
 
-    try std.testing.expectEqual(1,1);
+    config.print();
+    
+    try std.testing.expectEqualStrings(config.getConfig().get("auth").?.get("path").?, "C:\\Program Files\\App");
+    try std.testing.expectEqualStrings(config.getConfig().get("auth").?.get("token").?, "abc\ndef\t123");
+    try std.testing.expectEqualStrings(config.getConfig().get("empty").?.get("key").?, "");
 }
